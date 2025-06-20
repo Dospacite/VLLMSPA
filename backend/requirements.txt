@@ -1,4 +1,6 @@
-flask
-flask-cors
+Flask
+Flask-JWT-Extended
+Flask-SQLAlchemy
 psycopg2-binary
-requests
+Werkzeug
+dotenv
