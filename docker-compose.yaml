@@ -37,6 +37,9 @@ services:
       - POSTGRES_PASSWORD=password
 
   ollama:
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
     image: ollama/ollama
     ports:
       - "11434:11434"

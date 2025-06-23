@@ -1,41 +1,46 @@
 // Navbar.jsx
-import React, { Component } from 'react';
+import React from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import './Navbar.css';
 
-class Navbar extends Component {
-  constructor(props) {
-    super(props);
-    this.state = {
-      isAuthenticated: false, // Change this dynamically based on actual auth state
-    };
-  }
+const Navbar = () => {
+  const { isAuthenticated, logout, user } = useAuth();
+  const navigate = useNavigate();
 
-  toggleAuth = () => {
-    this.setState((prevState) => ({
-      isAuthenticated: !prevState.isAuthenticated,
-    }));
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
   };
 
-  render() {
-    const { isAuthenticated } = this.state;
-
-    return (
-      <nav className="navbar">
-         <a href="/" className="navbar-logo">Trickster</a>
-        <ul className="navbar-links">
-          <li><a href="/">Home</a></li>
-          <li><a href="/explore">Explore</a></li>
-          <li><a href="/profile">Profile</a></li>
-          <li><a href="/ai-chat">AI-Chat</a></li>
-          <li>
-            <button className="auth-button" onClick={this.toggleAuth}>
-              {isAuthenticated ? 'Logout' : 'Login'}
-            </button>
-          </li>
-        </ul>
-      </nav>
-    );
-  }
-}
+  return (
+    <nav className="navbar">
+      <Link to="/" className="navbar-logo">Trickster</Link>
+      <ul className="navbar-links">
+        {/* Always visible navigation links */}
+        <li><Link to="/">Home</Link></li>
+        <li><Link to="/explore">Explore</Link></li>
+        <li><Link to="/ai-chat">AI-Chat</Link></li>
+        
+        {/* Authentication-dependent links */}
+        {isAuthenticated ? (
+          <>
+            <li><Link to="/profile">Profile</Link></li>
+            <li>
+              <button className="auth-button" onClick={handleLogout}>
+                Logout
+              </button>
+            </li>
+          </>
+        ) : (
+          <>
+            <li><Link to="/login">Login</Link></li>
+            <li><Link to="/register">Register</Link></li>
+          </>
+        )}
+      </ul>
+    </nav>
+  );
+};
 
 export default Navbar;
