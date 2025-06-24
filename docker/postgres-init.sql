@@ -1,9 +1,12 @@
 -- Initialize the database with required tables
 -- This script runs when the PostgreSQL container starts for the first time
 
+-- Enable UUID extension
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
 -- Create the users table
 CREATE TABLE IF NOT EXISTS "user" (
-    id SERIAL PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     username VARCHAR(80) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL
 );
@@ -14,7 +17,7 @@ CREATE TABLE IF NOT EXISTS message (
     content TEXT NOT NULL,
     is_private BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    author_id INTEGER NOT NULL REFERENCES "user"(id)
+    author_id UUID NOT NULL REFERENCES "user"(id)
 );
 
 -- Create indexes for better performance

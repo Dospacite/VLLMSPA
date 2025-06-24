@@ -7,3 +7,4 @@ Werkzeug
 dotenv
 requests
 Flask-CORS
+uuid

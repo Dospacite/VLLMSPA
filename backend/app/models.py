@@ -1,9 +1,10 @@
 from . import db
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
+import uuid
 
 class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
     
@@ -21,7 +22,7 @@ class Message(db.Model):
     content = db.Column(db.Text, nullable=False)
     is_private = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    author_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    author_id = db.Column(db.String(36), db.ForeignKey('user.id'), nullable=False)
     
     def to_dict(self):
         return {
@@ -29,5 +30,6 @@ class Message(db.Model):
             'content': self.content,
             'is_private': self.is_private,
             'created_at': self.created_at.isoformat(),
-            'author': self.author.username
+            'author': self.author.username,
+            'author_id': self.author_id
         }

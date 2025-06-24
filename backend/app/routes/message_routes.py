@@ -46,6 +46,7 @@ def create_message():
         return jsonify({'error': 'Failed to create message'}), 500
 
 @message_bp.route('/messages', methods=['GET'])
+@jwt_required(optional=True)
 def get_messages():
     """Get all public messages and private messages of the authenticated user."""
     try:
@@ -72,7 +73,7 @@ def get_messages():
             ).order_by(Message.created_at.desc())
         else:
             # Unauthenticated user: only public messages
-            messages = Message.query.filter_by(is_private=False).order_by(Message.created_at.desc())
+            messages = Message.query.filter(Message.is_private == False).order_by(Message.created_at.desc())
         
         # Paginate the results
         paginated_messages = messages.paginate(
@@ -98,6 +99,19 @@ def get_messages():
         
     except Exception as e:
         return jsonify({'error': 'Failed to retrieve messages'}), 500
+
+
+@message_bp.route('/messages/private', methods=['GET'])
+@jwt_required()
+def get_private_messages():
+    """Get all private messages of the authenticated user."""
+    try:
+        current_user_id = get_jwt_identity()
+        messages = Message.query.filter_by(author_id=current_user_id, is_private=True).order_by(Message.created_at.desc())
+        return jsonify([msg.to_dict() for msg in messages]), 200
+    except Exception as e:
+        return jsonify({'error': 'Failed to retrieve private messages'}), 500
+
 
 @message_bp.route('/messages/<int:message_id>', methods=['GET'])
 def get_message(message_id):

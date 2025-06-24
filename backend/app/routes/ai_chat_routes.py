@@ -68,7 +68,14 @@ def health_check():
         if response.status_code == 200:
             models = response.json().get('models', [])
             model_names = [model.get('name', '') for model in models]
-            current_model = current_app.config.get("OLLAMA_MODEL", "llama3:8b")
+            current_model = current_app.config.get("OLLAMA_MODEL", "llama3.1:8b")
+
+            if current_model not in model_names:
+                return jsonify({
+                    "status": "unhealthy",
+                    "ollama_connected": True,
+                    "error": f"Model {current_model} not found in available models"
+                }), 500
             
             return jsonify({
                 "status": "healthy",
