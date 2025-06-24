@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useContext } from 'react';
 import axios from 'axios';
+import { AuthContext } from '../contexts/AuthContext';
 import './Chat.css';
 
 export default function Chat() {
@@ -8,7 +9,10 @@ export default function Chat() {
   const [isLoading, setIsLoading] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState(null);
+  const [availableTools, setAvailableTools] = useState([]);
+  const [toolsUsed, setToolsUsed] = useState([]);
   const messagesEndRef = useRef(null);
+  const { token } = useContext(AuthContext);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -19,13 +23,18 @@ export default function Chat() {
   }, [messages]);
 
   useEffect(() => {
-    checkConnection();
-  }, []);
+    if (token) {
+      checkConnection();
+      loadAvailableTools();
+    }
+  }, [token]);
 
   const checkConnection = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/ai-chat/health');
-      setIsConnected(response.data.ollama_connected);
+      const response = await axios.get('http://localhost:5000/ai-chat/health', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setIsConnected(response.data.ollama_connected && response.data.agent_initialized);
       setError(null);
     } catch (err) {
       setIsConnected(false);
@@ -33,10 +42,21 @@ export default function Chat() {
     }
   };
 
+  const loadAvailableTools = async () => {
+    try {
+      const response = await axios.get('http://localhost:5000/ai-chat/tools', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setAvailableTools(response.data.tools || []);
+    } catch (err) {
+      console.error('Failed to load tools:', err);
+    }
+  };
+
   const sendMessage = async (e) => {
     e.preventDefault();
     
-    if (!inputMessage.trim() || isLoading) return;
+    if (!inputMessage.trim() || isLoading || !token) return;
 
     const userMessage = {
       id: Date.now(),
@@ -49,10 +69,22 @@ export default function Chat() {
     setInputMessage('');
     setIsLoading(true);
     setError(null);
+    setToolsUsed([]);
 
     try {
+      // Prepare chat history for the agent
+      const chatHistory = messages
+        .filter(msg => msg.sender === 'user' || msg.sender === 'ai')
+        .map(msg => ({
+          role: msg.sender === 'user' ? 'user' : 'assistant',
+          content: msg.text
+        }));
+
       const response = await axios.post('http://localhost:5000/ai-chat/chat', {
-        message: inputMessage
+        message: inputMessage,
+        chat_history: chatHistory
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
       });
 
       const aiMessage = {
@@ -60,10 +92,17 @@ export default function Chat() {
         text: response.data.response,
         sender: 'ai',
         timestamp: new Date().toLocaleTimeString(),
-        model: response.data.model
+        model: response.data.model,
+        toolsUsed: response.data.tools_used,
+        toolDetails: response.data.tool_details
       };
 
       setMessages(prev => [...prev, aiMessage]);
+      
+      // Update tools used if any
+      if (response.data.tools_used) {
+        setToolsUsed(response.data.tool_details || []);
+      }
     } catch (err) {
       const errorMessage = {
         id: Date.now() + 1,
@@ -81,12 +120,44 @@ export default function Chat() {
   const clearChat = () => {
     setMessages([]);
     setError(null);
+    setToolsUsed([]);
   };
+
+  const renderToolUsage = (toolDetails) => {
+    if (!toolDetails || toolDetails.length === 0) return null;
+    
+    return (
+      <div className="tool-usage">
+        <div className="tool-indicator">
+          <span className="tool-icon">🔧</span>
+          <span className="tool-text">Tools used: {toolDetails.length}</span>
+        </div>
+        {toolDetails.map((step, index) => (
+          <div key={index} className="tool-step">
+            <div className="tool-name">{step[0].tool}</div>
+            <div className="tool-input">{step[0].tool_input}</div>
+            <div className="tool-output">{step[1]}</div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  if (!token) {
+    return (
+      <div className="chat-container">
+        <div className="auth-required">
+          <h2>Authentication Required</h2>
+          <p>Please log in to use the AI chat assistant.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="chat-container">
       <div className="chat-header">
-        <h1>AI Chat Assistant</h1>
+        <h1>AI Chat Assistant with Tools</h1>
         <div className="connection-status">
           <span className={`status-indicator ${isConnected ? 'connected' : 'disconnected'}`}>
             {isConnected ? '●' : '○'}
@@ -100,6 +171,19 @@ export default function Chat() {
         </button>
       </div>
 
+      {availableTools.length > 0 && (
+        <div className="tools-info">
+          <h3>Available Tools ({availableTools.length})</h3>
+          <div className="tools-list">
+            {availableTools.map((tool, index) => (
+              <div key={index} className="tool-item">
+                <strong>{tool.name}:</strong> {tool.description}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {error && (
         <div className="error-banner">
           <span>{error}</span>
@@ -112,9 +196,17 @@ export default function Chat() {
       <div className="messages-container">
         {messages.length === 0 && !isLoading && (
           <div className="welcome-message">
-            <h3>Welcome to AI Chat!</h3>
-            <p>Start a conversation with the AI assistant powered by Llama 3:8b.</p>
-            <p>Ask me anything - I'm here to help!</p>
+            <h3>Welcome to AI Chat with Tools!</h3>
+            <p>This AI assistant can use tools to provide better responses.</p>
+            <p>Try asking about your message history or communication patterns!</p>
+            <div className="example-prompts">
+              <p><strong>Example prompts:</strong></p>
+              <ul>
+                <li>"Can you summarize my recent messages?"</li>
+                <li>"What have I been talking about this week?"</li>
+                <li>"Show me my message patterns from the last month"</li>
+              </ul>
+            </div>
           </div>
         )}
 
@@ -125,10 +217,14 @@ export default function Chat() {
           >
             <div className="message-content">
               <div className="message-text">{message.text}</div>
+              {message.toolsUsed && renderToolUsage(message.toolDetails)}
               <div className="message-meta">
                 <span className="message-time">{message.timestamp}</span>
                 {message.model && (
                   <span className="model-info">via {message.model}</span>
+                )}
+                {message.toolsUsed && (
+                  <span className="tools-used">🔧 Tools used</span>
                 )}
               </div>
             </div>
@@ -144,7 +240,7 @@ export default function Chat() {
                   <span></span>
                   <span></span>
                 </div>
-                <span className="loading-text">AI is thinking...</span>
+                <span className="loading-text">AI is thinking and may use tools...</span>
               </div>
             </div>
           </div>
@@ -159,7 +255,7 @@ export default function Chat() {
             type="text"
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
-            placeholder="Type your message here..."
+            placeholder="Type your message here... (Try asking about your message history!)"
             disabled={isLoading || !isConnected}
             className="message-input"
           />

@@ -8,3 +8,7 @@ dotenv
 requests
 Flask-CORS
 uuid
+langchain
+langchain-community
+langchain-core
+langchain-ollama

@@ -1,15 +1,29 @@
 from flask import Blueprint, request, jsonify, current_app
+from flask_jwt_extended import jwt_required, get_jwt_identity
 import requests
 import json
+from ..services.langchain_agent import LangchainAgentService
 
 ai_chat_bp = Blueprint('ai_chat', __name__, url_prefix='/ai-chat')
 
+# Initialize the Langchain agent service
+agent_service = None
+
+def get_agent_service():
+    """Get or create the Langchain agent service."""
+    global agent_service
+    if agent_service is None:
+        model_name = current_app.config.get("OLLAMA_MODEL", "llama3.1:8b")
+        agent_service = LangchainAgentService(model_name=model_name)
+    return agent_service
+
 @ai_chat_bp.route('/chat', methods=['POST'])
+@jwt_required()
 def chat():
     """
-    AI Chat endpoint using Ollama with configurable model
-    Expects JSON with 'message' field
-    Returns AI response from Ollama
+    AI Chat endpoint using Langchain agent with tools
+    Expects JSON with 'message' field and optional 'chat_history'
+    Returns AI response from Langchain agent
     """
     try:
         data = request.get_json()
@@ -18,52 +32,64 @@ def chat():
             return jsonify({"error": "Message is required"}), 400
         
         user_message = data['message']
-        model_name = current_app.config.get("OLLAMA_MODEL", "llama3.1:8b")
+        chat_history = data.get('chat_history', [])
         
-        # Ollama API endpoint - using Docker service name
-        ollama_url = "http://ollama:11434/api/generate"
+        # Get the current user ID for tool context
+        user_id = get_jwt_identity()
         
-        # Prepare the request payload for Ollama
-        payload = {
-            "model": model_name,
-            "prompt": user_message,
-            "stream": False
-        }
+        # Get the agent service
+        agent = get_agent_service()
         
-        # Make request to Ollama
-        response = requests.post(ollama_url, json=payload, timeout=30)
+        # Process the message with the agent
+        result = agent.chat(
+            message=user_message,
+            user_id=user_id,
+            chat_history=chat_history
+        )
         
-        if response.status_code == 200:
-            ai_response = response.json()
+        if result['success']:
             return jsonify({
-                "response": ai_response.get('response', ''),
-                "model": model_name
+                "response": result['response'],
+                "model": result['model'],
+                "tools_used": len(result['tools_used']) > 0,
+                "tool_details": result['tools_used'] if result['tools_used'] else None
             }), 200
         else:
             return jsonify({
-                "error": f"Ollama API error: {response.status_code}",
-                "details": response.text
+                "error": result['response'],
+                "model": result['model']
             }), 500
             
-    except requests.exceptions.ConnectionError:
-        return jsonify({
-            "error": "Cannot connect to Ollama. Make sure Ollama is running on ollama:11434"
-        }), 503
-    except requests.exceptions.Timeout:
-        return jsonify({
-            "error": "Request to Ollama timed out"
-        }), 504
     except Exception as e:
         return jsonify({
             "error": f"Internal server error: {str(e)}"
         }), 500
 
+@ai_chat_bp.route('/tools', methods=['GET'])
+@jwt_required()
+def get_tools():
+    """
+    Get information about available tools
+    """
+    try:
+        agent = get_agent_service()
+        tools = agent.get_available_tools()
+        return jsonify({
+            "tools": tools,
+            "model": agent.model_name
+        }), 200
+    except Exception as e:
+        return jsonify({
+            "error": f"Failed to get tools: {str(e)}"
+        }), 500
+
 @ai_chat_bp.route('/health', methods=['GET'])
 def health_check():
     """
-    Health check endpoint to verify Ollama connection
+    Health check endpoint to verify Ollama connection and agent status
     """
     try:
+        # Check Ollama connection
         response = requests.get("http://ollama:11434/api/tags", timeout=5)
         if response.status_code == 200:
             models = response.json().get('models', [])
@@ -77,13 +103,29 @@ def health_check():
                     "error": f"Model {current_model} not found in available models"
                 }), 500
             
-            return jsonify({
-                "status": "healthy",
-                "ollama_connected": True,
-                "current_model": current_model,
-                "model_loaded": current_model in model_names,
-                "available_models": model_names
-            }), 200
+            # Try to initialize agent service
+            try:
+                agent = get_agent_service()
+                tools = agent.get_available_tools()
+                return jsonify({
+                    "status": "healthy",
+                    "ollama_connected": True,
+                    "current_model": current_model,
+                    "model_loaded": current_model in model_names,
+                    "available_models": model_names,
+                    "agent_initialized": True,
+                    "available_tools": len(tools)
+                }), 200
+            except Exception as agent_error:
+                return jsonify({
+                    "status": "unhealthy",
+                    "ollama_connected": True,
+                    "current_model": current_model,
+                    "model_loaded": current_model in model_names,
+                    "available_models": model_names,
+                    "agent_initialized": False,
+                    "agent_error": str(agent_error)
+                }), 500
         else:
             return jsonify({
                 "status": "unhealthy",
