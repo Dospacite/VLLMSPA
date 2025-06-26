@@ -1,4 +1,4 @@
-from langchain.agents import AgentExecutor, create_openai_tools_agent
+from langchain.agents import AgentExecutor, create_structured_chat_agent
 from langchain_ollama import OllamaLLM
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import HumanMessage, AIMessage
@@ -6,9 +6,10 @@ from langchain.tools import BaseTool
 from typing import List, Dict, Any, Optional
 import json
 from .message_summarizer import MessageSummarizerTool
+from .model_info_tool import ModelInfoTool
 
 class LangchainAgentService:
-    def __init__(self, model_name: str = "llama3.1:8b"):
+    def __init__(self, model_name: str = "llama3.1:8b-instruct-q8_0"):
         """Initialize the Langchain agent with tools."""
         self.model_name = model_name
         self.llm = OllamaLLM(model=model_name, base_url="http://ollama:11434")
@@ -19,35 +20,69 @@ class LangchainAgentService:
     def _setup_tools(self) -> List[BaseTool]:
         """Setup available tools for the agent."""
         tools = [
-            MessageSummarizerTool()
+            MessageSummarizerTool(),
+            ModelInfoTool()
         ]
         return tools
     
     def _setup_agent(self):
         """Setup the agent with prompt template."""
+        system = '''
+        Respond to the human as helpfully and accurately as possible. You have access to the following tools:
+
+        {tools}
+        
+        Use a json blob to specify a tool by providing an action key (tool name) and an action_input key (tool input).
+
+        Valid "action" values: "Final Answer" or {tool_names}
+
+        Provide only ONE action per $JSON_BLOB, as shown:
+
+        ```
+        {{
+        "action": $TOOL_NAME,
+        "action_input": $INPUT
+        }}
+        ```
+
+        Follow this format:
+
+        Question: input question to answer
+        Thought: consider previous and subsequent steps
+        Action:
+        ```
+        $JSON_BLOB
+        ```
+        Observation: action result
+        ... (repeat Thought/Action/Observation N times)
+        Thought: I know what to respond
+        Action:
+        ```
+        {{
+        "action": "Final Answer",
+        "action_input": "Final response to human"
+        }}
+
+        Begin! Reminder to ALWAYS respond with a valid json blob of a single action. Use tools if necessary. Respond directly if appropriate. Format is Action:```$JSON_BLOB```then Observation'''
+
+        human = '''{input}
+        {agent_scratchpad}
+        (reminder to respond in a JSON blob no matter what)'''
+
         prompt = ChatPromptTemplate.from_messages([
-            ("system", """You are a helpful AI assistant with access to tools that can help you provide better responses.
-
-Available tools:
-- message_summarizer: Can summarize a user's messages over different time periods to understand their communication patterns and content themes.
-
-When a user asks about their message history, communication patterns, or wants to understand their past interactions, use the message_summarizer tool to provide insights.
-
-Always be helpful, friendly, and provide detailed responses. If you need to use a tool, explain why you're using it and what information you're gathering."""),
-            MessagesPlaceholder(variable_name="chat_history"),
-            ("human", "{input}"),
-            MessagesPlaceholder(variable_name="agent_scratchpad"),
+            ("system", system),
+            MessagesPlaceholder("chat_history", optional=True),
+            ("human", human),
         ])
         
-        return create_openai_tools_agent(self.llm, self.tools, prompt)
+        return create_structured_chat_agent(self.llm, self.tools, prompt)
     
-    def chat(self, message: str, user_id: Optional[str] = None, chat_history: Optional[List[Dict]] = None) -> Dict[str, Any]:
+    def chat(self, message: str, chat_history: Optional[List[Dict]] = None) -> Dict[str, Any]:
         """
         Process a chat message using the Langchain agent.
         
         Args:
             message: The user's message
-            user_id: The user's ID (for tools that need it)
             chat_history: Previous chat messages
             
         Returns:
@@ -62,11 +97,6 @@ Always be helpful, friendly, and provide detailed responses. If you need to use 
                         langchain_messages.append(HumanMessage(content=msg.get('content', '')))
                     elif msg.get('role') == 'assistant':
                         langchain_messages.append(AIMessage(content=msg.get('content', '')))
-            
-            # Add context about the user if available
-            if user_id:
-                context_message = f"Note: The current user's ID is {user_id}. You can use this ID with tools that need to access user-specific data."
-                message = f"{context_message}\n\nUser message: {message}"
             
             # Execute the agent
             result = self.agent_executor.invoke({

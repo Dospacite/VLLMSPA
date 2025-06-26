@@ -16,5 +16,5 @@ class Config:
     CORS_ALLOW_HEADERS = ["Content-Type", "Authorization"]
     
     # Ollama Configuration
-    OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
+    OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:8b-instruct-q8_0")
     PRELOAD_MODEL = os.getenv("PRELOAD_MODEL", "true").lower() == "true"

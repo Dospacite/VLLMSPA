@@ -12,3 +12,4 @@ langchain
 langchain-community
 langchain-core
 langchain-ollama
+pydantic>=2.0.0

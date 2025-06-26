@@ -46,7 +46,7 @@ def create_message():
         return jsonify({'error': 'Failed to create message'}), 500
 
 @message_bp.route('/messages', methods=['GET'])
-@jwt_required(optional=True)
+@jwt_required(optional=True, skip_revocation_check=True)
 def get_messages():
     """Get all public messages and private messages of the authenticated user."""
     try:

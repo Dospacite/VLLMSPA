@@ -1,5 +1,4 @@
 from flask import Blueprint, request, jsonify, current_app
-from flask_jwt_extended import jwt_required, get_jwt_identity
 import requests
 import json
 from ..services.langchain_agent import LangchainAgentService
@@ -13,12 +12,11 @@ def get_agent_service():
     """Get or create the Langchain agent service."""
     global agent_service
     if agent_service is None:
-        model_name = current_app.config.get("OLLAMA_MODEL", "llama3.1:8b")
+        model_name = current_app.config.get("OLLAMA_MODEL", "llama3.1:8b-instruct-q8_0")
         agent_service = LangchainAgentService(model_name=model_name)
     return agent_service
 
 @ai_chat_bp.route('/chat', methods=['POST'])
-@jwt_required()
 def chat():
     """
     AI Chat endpoint using Langchain agent with tools
@@ -34,16 +32,12 @@ def chat():
         user_message = data['message']
         chat_history = data.get('chat_history', [])
         
-        # Get the current user ID for tool context
-        user_id = get_jwt_identity()
-        
         # Get the agent service
         agent = get_agent_service()
         
         # Process the message with the agent
         result = agent.chat(
             message=user_message,
-            user_id=user_id,
             chat_history=chat_history
         )
         
@@ -66,7 +60,6 @@ def chat():
         }), 500
 
 @ai_chat_bp.route('/tools', methods=['GET'])
-@jwt_required()
 def get_tools():
     """
     Get information about available tools
@@ -94,7 +87,7 @@ def health_check():
         if response.status_code == 200:
             models = response.json().get('models', [])
             model_names = [model.get('name', '') for model in models]
-            current_model = current_app.config.get("OLLAMA_MODEL", "llama3.1:8b")
+            current_model = current_app.config.get("OLLAMA_MODEL", "llama3.1:8b-instruct-q8_0")
 
             if current_model not in model_names:
                 return jsonify({
