@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify, current_app
 import requests
 import json
 from ..services.langchain_agent import LangchainAgentService
+from ..models import LLMLog, db
 
 ai_chat_bp = Blueprint('ai_chat', __name__, url_prefix='/ai-chat')
 
@@ -15,6 +16,24 @@ def get_agent_service():
         model_name = current_app.config.get("OLLAMA_MODEL", "llama3.1:8b-instruct-q8_0")
         agent_service = LangchainAgentService(model_name=model_name)
     return agent_service
+
+def log_llm_interaction(user_message, result):
+    """Log LLM interaction to database."""
+    try:
+        log_entry = LLMLog(
+            user_message=user_message,
+            ai_response=result.get('response', ''),
+            model_name=result.get('model', ''),
+            tools_used=json.dumps(result.get('tools_used', [])) if result.get('tools_used') else None,
+            intermediate_steps=json.dumps(result.get('tools_used', [])) if result.get('tools_used') else None,
+            reasoning_steps=json.dumps(result.get('reasoning_steps', [])) if result.get('reasoning_steps') else None,
+            success=result.get('success', False),
+            error_message=result.get('error', None)
+        )
+        db.session.add(log_entry)
+        db.session.commit()
+    except Exception as e:
+        current_app.logger.error(f"Failed to log LLM interaction: {str(e)}")
 
 @ai_chat_bp.route('/chat', methods=['POST'])
 def chat():
@@ -41,6 +60,9 @@ def chat():
             chat_history=chat_history
         )
         
+        # Log the interaction
+        log_llm_interaction(user_message, result)
+        
         if result['success']:
             return jsonify({
                 "response": result['response'],
@@ -57,6 +79,37 @@ def chat():
     except Exception as e:
         return jsonify({
             "error": f"Internal server error: {str(e)}"
+        }), 500
+
+@ai_chat_bp.route('/logs', methods=['GET'])
+def get_llm_logs():
+    """
+    Get LLM interaction logs
+    Supports pagination with 'page' and 'per_page' query parameters
+    """
+    try:
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+        
+        # Get logs ordered by most recent first
+        logs = LLMLog.query.order_by(LLMLog.created_at.desc()).paginate(
+            page=page, per_page=per_page, error_out=False
+        )
+        
+        return jsonify({
+            "logs": [log.to_dict() for log in logs.items],
+            "pagination": {
+                "page": page,
+                "per_page": per_page,
+                "total": logs.total,
+                "pages": logs.pages,
+                "has_next": logs.has_next,
+                "has_prev": logs.has_prev
+            }
+        }), 200
+    except Exception as e:
+        return jsonify({
+            "error": f"Failed to fetch logs: {str(e)}"
         }), 500
 
 @ai_chat_bp.route('/tools', methods=['GET'])

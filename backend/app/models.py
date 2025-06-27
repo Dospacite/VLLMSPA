@@ -2,6 +2,7 @@ from . import db
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 import uuid
+import json
 
 class User(db.Model):
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
@@ -32,4 +33,30 @@ class Message(db.Model):
             'created_at': self.created_at.isoformat(),
             'author': self.author.username,
             'author_id': self.author_id
+        }
+
+class LLMLog(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_message = db.Column(db.Text, nullable=False)
+    ai_response = db.Column(db.Text, nullable=False)
+    model_name = db.Column(db.String(100), nullable=False)
+    tools_used = db.Column(db.Text, nullable=True)  # JSON string of tools used
+    intermediate_steps = db.Column(db.Text, nullable=True)  # JSON string of intermediate steps
+    reasoning_steps = db.Column(db.Text, nullable=True)  # JSON string of detailed reasoning steps
+    success = db.Column(db.Boolean, default=True, nullable=False)
+    error_message = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_message': self.user_message,
+            'ai_response': self.ai_response,
+            'model_name': self.model_name,
+            'tools_used': json.loads(self.tools_used) if self.tools_used else None,
+            'intermediate_steps': json.loads(self.intermediate_steps) if self.intermediate_steps else None,
+            'reasoning_steps': json.loads(self.reasoning_steps) if self.reasoning_steps else None,
+            'success': self.success,
+            'error_message': self.error_message,
+            'created_at': self.created_at.isoformat()
         }

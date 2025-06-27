@@ -3,7 +3,7 @@
 ## Vulnerability Coverage of OWASP 2023 LLM
 
 ### LLM01: Prompt Injection
-Available through the message summarizer, where the messages are passed back from the tool without sanitization.
+Available through the message fetch tool, where the messages are passed back from the tool without sanitization. The tool accepts unsanitized user input that can be used for injection attacks.
 
 ### LLM02: Insecure Output Handling - TODO
 This will be available through the unsanitized handling of LLM response via the message summarizer, using dangerouslySetHTML.
@@ -17,9 +17,8 @@ No safeguards exist against mass requests to the /chat endpoint.
 ### LLM05: Supply Chain - TODO
 Will use an intentionally vulnerable version of a python package.
 
-
 ### LLM06: Sensitive Information Disclosure
-Implemented through the non-filtered message summary response, where it includes private messages.
+Exposes private messages to the attacker through the message fetching tool. The tool returns all messages including private ones without proper authorization checks.
 
 ### LLM07: Insecure Plugin Design
 Command injection vulnerability in model info tool, will also implement user information access through raw sql query, to enable SQL injection.
@@ -44,4 +43,20 @@ Only the vulnerabilities not covered by the 2023.
 
 ### LLM10: Unbounded Consumption
 Maybe a fake wallet that decreases in funds every time a "request" is performed by the LLM.
+
+## Message Fetching Tool
+
+The message fetching tool (`backend/app/services/message_fetch_tool.py`) is a Langchain tool that allows the LLM to fetch messages from the database. It is intentionally vulnerable to:
+
+1. **LLM01: Prompt Injection** - The tool accepts unsanitized user input without any validation or sanitization
+2. **LLM06: Sensitive Information Disclosure** - The tool returns private messages without proper authorization checks
+
+### Usage Examples:
+- `username:admin` - Fetches all messages from the admin user
+- `private` - Fetches all private messages from all users
+- `content:password` - Fetches messages containing the word "password"
+- `content:credentials` - Fetches messages containing credentials
+
+### Demo:
+Run `python backend/demo_message_fetch.py` to see the vulnerabilities in action.
 
