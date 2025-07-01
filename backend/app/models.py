@@ -11,6 +11,8 @@ class User(db.Model):
     
     # Relationship with messages
     messages = db.relationship('Message', backref='author', lazy=True)
+    # Relationship with feedback
+    feedback = db.relationship('Feedback', backref='author', lazy=True)
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -30,6 +32,25 @@ class Message(db.Model):
             'id': self.id,
             'content': self.content,
             'is_private': self.is_private,
+            'created_at': self.created_at.isoformat(),
+            'author': self.author.username,
+            'author_id': self.author_id
+        }
+
+class Feedback(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    prompt = db.Column(db.Text, nullable=False)  # The prompt/instruction for the AI
+    response = db.Column(db.Text, nullable=False)  # The desired response
+    is_active = db.Column(db.Boolean, default=True, nullable=False)  # Whether this feedback is active
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    author_id = db.Column(db.String(36), db.ForeignKey('user.id'), nullable=False)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'prompt': self.prompt,
+            'response': self.response,
+            'is_active': self.is_active,
             'created_at': self.created_at.isoformat(),
             'author': self.author.username,
             'author_id': self.author_id

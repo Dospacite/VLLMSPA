@@ -10,6 +10,7 @@ import Chat from './pages/Chat';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import LLMLogs from './pages/LLMLogs';
+import Feedback from './pages/Feedback';
 
 function App() {
   return (
@@ -26,6 +27,7 @@ function App() {
             <Route path="/explore" element={<Explore />} />
             <Route path="/ai-chat" element={<Chat />} />
             <Route path="/llm-logs" element={<LLMLogs />} />
+            <Route path="/feedback" element={<Feedback />} />
             
             {/* Protected route - only profile requires authentication */}
             <Route path="/profile" element={

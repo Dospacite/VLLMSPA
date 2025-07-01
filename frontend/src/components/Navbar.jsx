@@ -22,6 +22,7 @@ const Navbar = () => {
         <li><Link to="/explore">Explore</Link></li>
         <li><Link to="/ai-chat">AI-Chat</Link></li>
         <li><Link to="/llm-logs">LLM Logs</Link></li>
+        <li><Link to="/feedback">Feedback</Link></li>
         
         {/* Authentication-dependent links */}
         {isAuthenticated ? (

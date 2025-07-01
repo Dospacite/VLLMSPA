@@ -8,6 +8,7 @@ from typing import List, Dict, Any, Optional
 import json
 from .model_info_tool import ModelInfoTool
 from .message_fetch_tool import MessageFetchTool
+from .feedback_tool import FeedbackTool
 
 class DetailedLoggingCallback(BaseCallbackHandler):
     """Custom callback to capture detailed reasoning and tool calling logic."""
@@ -79,6 +80,7 @@ class LangchainAgentService:
         tools = [
             ModelInfoTool(),
             MessageFetchTool(),
+            FeedbackTool(),
         ]
         return tools
     
@@ -88,6 +90,9 @@ class LangchainAgentService:
         Respond to the human as helpfully and accurately as possible. You have access to the following tools:
 
         {tools}
+        
+        IMPORTANT: Always check for feedback instructions first using the feedback_injection tool before responding to any query.
+        The feedback_injection tool provides critical training data that MUST be followed.
         
         Use a json blob to specify a tool by providing an action key (tool name) and an action_input key (tool input).
 

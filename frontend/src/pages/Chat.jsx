@@ -140,7 +140,10 @@ export default function Chat() {
             className={`message ${message.sender === 'user' ? 'user-message' : 'ai-message'} ${message.sender === 'error' ? 'error-message' : ''}`}
           >
             <div className="message-content">
-              <div className="message-text">{message.text}</div>
+              <div 
+                className="message-text"
+                dangerouslySetInnerHTML={{ __html: message.text }}
+              />
               <div className="message-meta">
                 <span className="message-time">{message.timestamp}</span>
                 {message.model && (
