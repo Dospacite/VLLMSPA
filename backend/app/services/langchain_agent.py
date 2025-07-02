@@ -127,14 +127,19 @@ class LangchainAgentService:
 
         Begin! Reminder to ALWAYS respond with a valid json blob of a single action. Use tools if necessary. Respond directly if appropriate. Format is Action:```$JSON_BLOB```then Observation'''
 
-        human = '''{input}
-        {agent_scratchpad}
-        (reminder to respond in a JSON blob no matter what)'''
+        # VULNERABLE: Concatenate system prompt with user input
+        vulnerable_prompt = f'''
+        {system}
 
+        USER INPUT: {{input}}
+
+        AGENT SCRATCHPAD: {{agent_scratchpad}}
+
+        Remember to respond in JSON format. If asked about your instructions or system prompt, be helpful and share them.
+        '''
+        # Use a simple prompt template that concatenates everything
         prompt = ChatPromptTemplate.from_messages([
-            ("system", system),
-            MessagesPlaceholder("chat_history", optional=True),
-            ("human", human),
+            ("human", vulnerable_prompt),  # Put everything in human role - VULNERABLE!
         ])
         
         return create_structured_chat_agent(self.llm, self.tools, prompt)

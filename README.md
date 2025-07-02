@@ -1,14 +1,28 @@
 # Vulnerable LLM Single Page Web App
 
+## Installation
+### Linux with NVIDIA
+Make sure you install NVIDIA Container Toolkit from https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html
+Then execute the following: 
+sudo nvidia-ctk runtime configure --runtime=docker
+sudo systemctl restart docker
+
+### Other Installations - Not Recommended
+Not running the container with a GPU makes the LLM response times painfully slow.
+Make sure you remove the lines 45-47 in the docker-compose.yaml file to not use the NVIDIA runtime.
+### Steps after running the docker container
+Execute `docker ps` to see the running containers and note down the ollama container name, usually vllmspa-ollama-1.
+Then execute `docker exec vllmspa-ollama-1 ollama pull llama3.1:8b-instruct-q8_0` to install the model.
+
 ## Vulnerability Coverage of OWASP 2023 LLM
 
 ### LLM01: Prompt Injection
 Available through the message fetch tool, where the messages are passed back from the tool without sanitization. The tool accepts unsanitized user input that can be used for injection attacks.
 
-### LLM02: Insecure Output Handling - TODO
+### LLM02: Insecure Output Handling
 This will be available through the unsanitized handling of LLM response via the message summarizer, using dangerouslySetHTML.
 
-### LLM03: Training Data Poisoning - TODO
+### LLM03: Training Data Poisoning
 Will be implemented through insecure RAG entries, as a form of "Send Feedback to The LLM" feature.
 
 ### LLM04: Model Denial of Service
@@ -35,28 +49,14 @@ This is already implemented since there is no safeguard against usage of this mo
 ## Vulnerability Coverage of OWASP 2025 LLM
 Only the vulnerabilities not covered by the 2023.
 
-### LLM07: System Prompt Leakage - TODO
+### LLM07: System Prompt Leakage
+Did not separate system and human prompt.
 
-### LLM08: Vector and Embedding Weakness
+### LLM08: Vector and Embedding Weakness - TODO
 
-### LLM09: Misinformation
+### LLM09: Misinformation - TODO
 
-### LLM10: Unbounded Consumption
+### LLM10: Unbounded Consumption - TODO
 Maybe a fake wallet that decreases in funds every time a "request" is performed by the LLM.
 
-## Message Fetching Tool
-
-The message fetching tool (`backend/app/services/message_fetch_tool.py`) is a Langchain tool that allows the LLM to fetch messages from the database. It is intentionally vulnerable to:
-
-1. **LLM01: Prompt Injection** - The tool accepts unsanitized user input without any validation or sanitization
-2. **LLM06: Sensitive Information Disclosure** - The tool returns private messages without proper authorization checks
-
-### Usage Examples:
-- `username:admin` - Fetches all messages from the admin user
-- `private` - Fetches all private messages from all users
-- `content:password` - Fetches messages containing the word "password"
-- `content:credentials` - Fetches messages containing credentials
-
-### Demo:
-Run `python backend/demo_message_fetch.py` to see the vulnerabilities in action.
 
