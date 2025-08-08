@@ -1,11 +1,11 @@
 from langchain.tools import BaseTool
-from typing import Optional
+from typing import Optional, Any
 from ..models import Feedback
 import json
 
 class FeedbackTool(BaseTool):
-    name = "feedback_injection"
-    description = "Injects user feedback to modify AI behavior. This tool retrieves active feedback and applies it to influence responses."
+    name: str = "feedback_injection"
+    description: str = "Injects user feedback to modify AI behavior. This tool retrieves active feedback and applies it to influence responses."
     
     def _run(self, query: str) -> str:
         """
@@ -25,7 +25,8 @@ class FeedbackTool(BaseTool):
             for feedback in active_feedback:
                 feedback_list.append({
                     'prompt': feedback.prompt,
-                    'response': feedback.response
+                    'response': feedback.response,
+                    'author_id': feedback.author_id
                 })
             
             # Build feedback injection prompt
@@ -46,6 +47,7 @@ class FeedbackTool(BaseTool):
             # No sanitization - directly use user feedback
             prompt = feedback.get('prompt', '')
             response = feedback.get('response', '')
+            author_id = feedback.get('author_id', '')
             
             # Create injection - all feedback is treated equally
             injection_parts.append(f"INSTRUCTION: When asked about '{prompt}', respond with: '{response}'")

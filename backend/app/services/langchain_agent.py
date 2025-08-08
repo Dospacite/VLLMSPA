@@ -9,6 +9,9 @@ import json
 from .model_info_tool import ModelInfoTool
 from .message_fetch_tool import MessageFetchTool
 from .feedback_tool import FeedbackTool
+from .user_info_tool import UserInfoTool
+from .website_content_tool import WebsiteContentTool
+from .rag_tool import VulnerableRAGTool
 
 class DetailedLoggingCallback(BaseCallbackHandler):
     """Custom callback to capture detailed reasoning and tool calling logic."""
@@ -67,9 +70,10 @@ class DetailedLoggingCallback(BaseCallbackHandler):
                     })
 
 class LangchainAgentService:
-    def __init__(self, model_name: str = "llama3.1:8b-instruct-q8_0"):
+    def __init__(self, model_name: str = "llama3.1:8b-instruct-q8_0", jwt_token: Optional[str] = None):
         """Initialize the Langchain agent with tools."""
         self.model_name = model_name
+        self.jwt_token = jwt_token  # Keep for potential future use
         self.llm = OllamaLLM(model=model_name, base_url="http://ollama:11434")
         self.tools = self._setup_tools()
         self.agent = self._setup_agent()
@@ -80,7 +84,10 @@ class LangchainAgentService:
         tools = [
             ModelInfoTool(),
             MessageFetchTool(),
-            FeedbackTool(),
+            FeedbackTool(),  # No JWT token needed
+            UserInfoTool(),
+            WebsiteContentTool(),
+            VulnerableRAGTool(),  # VULNERABLE: Vector and embedding weakness
         ]
         return tools
     
@@ -144,13 +151,14 @@ class LangchainAgentService:
         
         return create_structured_chat_agent(self.llm, self.tools, prompt)
     
-    def chat(self, message: str, chat_history: Optional[List[Dict]] = None) -> Dict[str, Any]:
+    def chat(self, message: str, chat_history: Optional[List[Dict]] = None, jwt_token: Optional[str] = None) -> Dict[str, Any]:
         """
         Process a chat message using the Langchain agent.
         
         Args:
             message: The user's message
             chat_history: Previous chat messages
+            jwt_token: JWT token for authentication (not used since token is set in constructor)
             
         Returns:
             Dict containing the response and any additional information
