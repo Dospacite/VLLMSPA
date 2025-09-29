@@ -74,10 +74,6 @@ const DocumentSearch = () => {
     return (
         <div className="document-search">
             <h3>Search Documents Using Vector Embeddings</h3>
-            <p className="vulnerability-notice">
-                ⚠️ VULNERABLE: This search has no access control and can return private documents. 
-                No input sanitization or query validation is performed.
-            </p>
             
             <div className="search-form">
                 <div className="form-group">
@@ -115,7 +111,7 @@ const DocumentSearch = () => {
                                 checked={includePrivate}
                                 onChange={(e) => setIncludePrivate(e.target.checked)}
                             />
-                            Include Private Documents (VULNERABLE: No access control)
+                            Include Private Documents
                         </label>
                     </div>
                 </div>
@@ -169,7 +165,7 @@ const DocumentSearch = () => {
                                     <button
                                         onClick={() => handleDeleteDocument(doc.id)}
                                         className="delete-button"
-                                        title="Delete document (VULNERABLE: No authorization check)"
+                                        title="Delete document"
                                     >
                                         Delete
                                     </button>
